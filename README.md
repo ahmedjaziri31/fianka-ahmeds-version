@@ -34,3 +34,21 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Project Architecture & Stack Constraints
+
+This project uses:
+- **Next.js (App Router, TypeScript)**
+- **Tailwind CSS** for styling
+- **shadcn/ui** for components
+- **Zustand** for state management
+
+### Folder Structure
+- `src/app/` — Next.js app directory (routing entry points)
+- `src/components/` — Reusable UI components
+- `src/features/` — Feature-based modules (each with its own state, UI, logic)
+- `src/store/` — Zustand stores
+- `src/utils/` — Utility functions/helpers
+- `src/types/` — TypeScript types/interfaces
+
+> **Note:** Always use Next.js App Router for routing and Zustand for state management throughout the project for scalability and consistency.
