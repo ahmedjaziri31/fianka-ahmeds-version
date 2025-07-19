@@ -4,6 +4,9 @@ export interface User {
   email: string;
   name: string;
   created_at: string;
+  birth_date?: string;
+  gender?: string;
+  city?: string;
 }
 
 export interface LoginData {
@@ -11,10 +14,10 @@ export interface LoginData {
   password: string;
 }
 
-export interface RegisterData {
-  name: string;
+export interface CreateUserData {
   email: string;
   password: string;
+  name: string;
 }
 
 export interface AuthResponse {
@@ -22,31 +25,11 @@ export interface AuthResponse {
   message: string;
 }
 
-// Address types
-export interface ShippingAddress {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  address: string;
-  city: string;
-  postalCode: string;
-  country?: string;
-}
-
-// Size chart types
-export interface SizeChart {
-  [key: string]: {
-    longueurTotale: number;
-    tourPoitrine: number;
-    tourBas: number;
-    largeurEpaule: number;
-    ecartEncolure: number;
-    hauteurCol: number;
-    longueurManche: number;
-    basManche: number;
-    tourBiceps: number;
-  };
+// App State
+export interface AppState {
+  user: User | null;
+  isAuthenticated: boolean;
+  theme: 'light' | 'dark';
 }
 
 // Product types
@@ -62,7 +45,7 @@ export interface Product {
   stock: number;
   created_at: string;
   availableSizes?: string[];
-  sizeChart?: SizeChart;
+  sizeChart?: Record<string, string>;
 }
 
 // Cart types
@@ -72,6 +55,25 @@ export interface CartItem {
   quantity: number;
   size?: string;
   color?: string;
+}
+
+export interface CartState {
+  items: CartItem[];
+  total: number;
+  itemCount: number;
+  promoCode: string;
+  discount: number;
+}
+
+// Shipping types
+export interface ShippingAddress {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  postalCode: string;
 }
 
 // Order types
@@ -93,6 +95,7 @@ export interface CreateOrderData {
   items: CartItem[];
   shipping_address: ShippingAddress;
   promo_code?: string;
+  user_id?: number;
 }
 
 // Promo code types

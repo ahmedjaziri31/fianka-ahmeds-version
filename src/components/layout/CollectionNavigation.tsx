@@ -47,7 +47,8 @@ export function CollectionNavigation({ activeSection }: CollectionNavigationProp
       const orderData = {
         items,
         shipping_address: shippingAddress,
-        promo_code: promoCode
+        promo_code: promoCode,
+        user_id: user?.id // Include user ID if logged in
       };
 
       const response = await fetch('/api/orders', {

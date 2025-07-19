@@ -65,7 +65,8 @@ export function Navigation() {
       const orderData = {
         items,
         shipping_address: shippingAddress,
-        promo_code: promoCode
+        promo_code: promoCode,
+        user_id: user?.id // Include user ID if logged in
       };
 
       const response = await fetch('/api/orders', {
@@ -97,6 +98,11 @@ export function Navigation() {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    router.push('/');
+  };
+
   return (
     <nav 
       className={cn(
@@ -107,67 +113,63 @@ export function Navigation() {
       )}
     >
       <div className="container mx-auto px-4">
-        {/* Initial Design - Large Logo with Tabs Below */}
+        {/* Initial Design - Single Horizontal Line */}
         <div className={cn(
           "transition-all duration-300 ease-in-out",
-          isScrolled ? "opacity-0 h-0 overflow-hidden" : "opacity-100"
+          isScrolled ? "opacity-0 h-0 overflow-hidden" : "opacity-100 py-4 md:py-6"
         )}>
-          <div className="flex flex-col items-center py-6 md:py-8">
-            {/* Large Logo */}
-            <Link href="/" className="flex items-center mb-4 md:mb-6">
+          <div className="flex items-center justify-between w-full">
+            {/* Logo */}
+            <Link href="/" className="flex items-center">
               <Image
                 src="/fianka-logo.gif"
                 alt="Fianka Logo"
-                width={60}
-                height={60}
-                className="rounded-lg md:w-20 md:h-20"
+                width={50}
+                height={50}
+                className="rounded-lg md:w-16 md:h-16"
               />
             </Link>
 
-            {/* Navigation Tabs and Icons Row */}
-            <div className="flex flex-col md:flex-row items-center justify-between w-full max-w-4xl space-y-4 md:space-y-0">
-              {/* Navigation tabs */}
-              <div className="flex-1 flex justify-center">
-                <nav className="flex items-center space-x-4 md:space-x-8">
-                  <Link href="/homme" className="text-xs md:text-sm font-medium transition-colors text-white hover:text-dune-gold focus:outline-none px-2 py-2">
-                    HOMME
-                  </Link>
-                  <Link href="/femme" className="text-xs md:text-sm font-medium transition-colors text-white hover:text-dune-gold focus:outline-none px-2 py-2">
-                    FEMME
-                  </Link>
-                  <Link href="/unisexe" className="text-xs md:text-sm font-medium transition-colors text-white hover:text-dune-gold focus:outline-none px-2 py-2">
-                    UNISEXE
-                  </Link>
-                  <Link href="/fianka" className="text-xs md:text-sm font-medium transition-colors text-white hover:text-dune-gold focus:outline-none px-2 py-2">
-                    FIANKA
-                  </Link>
-                </nav>
-              </div>
+            {/* Navigation Links - Center */}
+            <nav className="hidden md:flex items-center space-x-6 lg:space-x-8">
+              <Link href="/homme" className="text-sm font-medium transition-colors text-white hover:text-dune-gold focus:outline-none px-3 py-2">
+                HOMME
+              </Link>
+              <Link href="/femme" className="text-sm font-medium transition-colors text-white hover:text-dune-gold focus:outline-none px-3 py-2">
+                FEMME
+              </Link>
+              <Link href="/unisexe" className="text-sm font-medium transition-colors text-white hover:text-dune-gold focus:outline-none px-3 py-2">
+                UNISEXE
+              </Link>
+              <Link href="/fianka" className="text-sm font-medium transition-colors text-white hover:text-dune-gold focus:outline-none px-3 py-2">
+                FIANKA
+              </Link>
+            </nav>
 
-              {/* Action icons on the right */}
-              <div className="flex items-center space-x-3 md:space-x-4">
-                {/* Search Icon */}
-                <Button variant="ghost" size="sm" className="h-8 w-8 md:h-10 md:w-10 p-0 text-white hover:text-dune-gold hover:bg-white/10 rounded-full">
-                  <Search className="h-4 w-4 md:h-5 md:w-5" />
-                </Button>
+            {/* Action Icons - Right */}
+            <div className="flex items-center space-x-3 md:space-x-4">
+              {/* Search Icon */}
+              <Button variant="ghost" size="sm" className="h-8 w-8 md:h-10 md:w-10 p-0 text-white hover:text-dune-gold hover:bg-white/10 rounded-full">
+                <Search className="h-4 w-4 md:h-5 md:w-5" />
+              </Button>
 
-                {/* Shopping Cart */}
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-8 w-8 md:h-10 md:w-10 p-0 text-white hover:text-dune-gold hover:bg-white/10 rounded-full relative"
-                  onClick={handleCartClick}
-                >
-                  <ShoppingCart className="h-4 w-4 md:h-5 md:w-5" />
-                  {/* Cart badge */}
-                  {itemCount > 0 && (
-                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-                      {itemCount > 9 ? '9+' : itemCount}
-                    </span>
-                  )}
-                </Button>
+              {/* Shopping Cart */}
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 w-8 md:h-10 md:w-10 p-0 text-white hover:text-dune-gold hover:bg-white/10 rounded-full relative"
+                onClick={handleCartClick}
+              >
+                <ShoppingCart className="h-4 w-4 md:h-5 md:w-5" />
+                {/* Cart badge */}
+                {itemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
+                    {itemCount > 9 ? '9+' : itemCount}
+                  </span>
+                )}
+              </Button>
 
-                              {/* Profile Icon */}
+              {/* Profile Icon */}
               <Button 
                 variant="ghost" 
                 size="sm" 
@@ -176,7 +178,16 @@ export function Navigation() {
               >
                 <User className="h-4 w-4 md:h-5 md:w-5" />
               </Button>
-              </div>
+
+              {/* Mobile Menu Button */}
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="md:hidden h-8 w-8 p-0 text-white hover:text-dune-gold hover:bg-white/10 rounded-full"
+                onClick={toggleMobileMenu}
+              >
+                {isMobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+              </Button>
             </div>
           </div>
         </div>
@@ -184,53 +195,37 @@ export function Navigation() {
         {/* Scrolled Design - Clean Compact Layout */}
         <div className={cn(
           "transition-all duration-300 ease-in-out",
-          isScrolled ? "opacity-100 h-12 md:h-14" : "opacity-0 h-0 overflow-hidden"
+          isScrolled ? "opacity-100 py-3 md:py-4" : "opacity-0 h-0 overflow-hidden"
         )}>
-          <div className="flex h-12 md:h-14 items-center justify-between">
-            {/* Mobile Menu Button - Only visible on mobile */}
-            <div className="flex items-center sm:hidden">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-8 w-8 p-0 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-full"
-                onClick={toggleMobileMenu}
-              >
-                <Menu className="h-4 w-4" />
-              </Button>
-            </div>
+          <div className="flex items-center justify-between w-full">
+            {/* Compact Logo */}
+            <Link href="/" className="flex items-center">
+              <Image
+                src="/fianka-logo.gif"
+                alt="Fianka Logo"
+                width={32}
+                height={32}
+                className="rounded-lg md:w-10 md:h-10"
+              />
+            </Link>
 
-            {/* Logo in center on mobile, left on desktop */}
-            <div className="flex items-center sm:mr-auto">
-              <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
-                <Image
-                  src="/fianka-logo.gif"
-                  alt="Fianka Logo"
-                  width={32}
-                  height={32}
-                  className="rounded-lg md:w-10 md:h-10"
-                />
+            {/* Compact Navigation */}
+            <nav className="hidden md:flex items-center space-x-4 lg:space-x-6">
+              <Link href="/homme" className="text-sm font-medium transition-colors text-gray-700 hover:text-gray-900 focus:outline-none px-2 py-1">
+                HOMME
               </Link>
-            </div>
+              <Link href="/femme" className="text-sm font-medium transition-colors text-gray-700 hover:text-gray-900 focus:outline-none px-2 py-1">
+                FEMME
+              </Link>
+              <Link href="/unisexe" className="text-sm font-medium transition-colors text-gray-700 hover:text-gray-900 focus:outline-none px-2 py-1">
+                UNISEXE
+              </Link>
+              <Link href="/fianka" className="text-sm font-medium transition-colors text-gray-700 hover:text-gray-900 focus:outline-none px-2 py-1">
+                FIANKA
+              </Link>
+            </nav>
 
-            {/* Navigation tabs in center - Hidden on mobile */}
-            <div className="hidden sm:flex flex-1 justify-center">
-              <nav className="flex items-center space-x-4 md:space-x-8">
-                <Link href="/homme" className="text-xs md:text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors py-2 px-1">
-                  HOMME
-                </Link>
-                <Link href="/femme" className="text-xs md:text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors py-2 px-1">
-                  FEMME
-                </Link>
-                <Link href="/unisexe" className="text-xs md:text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors py-2 px-1">
-                  UNISEXE
-                </Link>
-                <Link href="/fianka" className="text-xs md:text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors py-2 px-1">
-                  FIANKA
-                </Link>
-              </nav>
-            </div>
-
-            {/* Action icons on the right */}
+            {/* Compact Icons */}
             <div className="flex items-center space-x-1 md:space-x-2">
               {/* Search Icon */}
               <Button variant="ghost" size="sm" className="h-8 w-8 md:h-9 md:w-9 p-0 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-full">
@@ -277,32 +272,30 @@ export function Navigation() {
 
       {/* Mobile Side Menu */}
       <div className={cn(
-        "fixed top-0 left-0 h-full w-64 bg-white z-50 transform transition-transform duration-300 ease-in-out sm:hidden",
-        isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+        "fixed top-0 right-0 h-full w-64 bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out sm:hidden",
+        isMobileMenuOpen ? "translate-x-0" : "translate-x-full"
       )}>
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200">
-            <Link href="/" className="flex items-center" onClick={closeMobileMenu}>
-              <Image
-                src="/fianka-logo.gif"
-                alt="Fianka Logo"
-                width={40}
-                height={40}
-                className="rounded-lg"
-              />
-            </Link>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full"
+          <div className="flex items-center justify-between p-4 border-b">
+            <Image
+              src="/fianka-logo.gif"
+              alt="Fianka Logo"
+              width={40}
+              height={40}
+              className="rounded-lg"
+            />
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={closeMobileMenu}
+              className="h-8 w-8 p-0"
             >
               <X className="h-4 w-4" />
             </Button>
           </div>
 
-          {/* Navigation Links */}
+          {/* Navigation */}
           <nav className="flex-1 px-4 py-6">
             <div className="space-y-4">
               <Link 

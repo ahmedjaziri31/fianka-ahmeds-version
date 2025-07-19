@@ -1,18 +1,23 @@
 import Database from 'better-sqlite3';
+import path from 'path';
 import { hash, compare } from 'bcryptjs';
-import { Product, Order, CreateOrderData, ShippingAddress, CartItem } from '@/types';
+import { CreateOrderData, Order, CartItem, Product } from '@/types';
 
 // Initialize database
-const db = new Database('fianka.db');
+const dbPath = path.join(process.cwd(), 'database.sqlite');
+const db = new Database(dbPath);
+
+// Enable foreign keys
+db.pragma('foreign_keys = ON');
 
 // Create users table
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
-    name TEXT,
-    birth_date TEXT,
+    birth_date DATE,
     gender TEXT,
     city TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -31,6 +36,8 @@ db.exec(`
     size TEXT,
     color TEXT,
     stock INTEGER NOT NULL DEFAULT 0,
+    available_sizes TEXT,
+    size_chart TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )
 `);
@@ -68,59 +75,41 @@ db.exec(`
   )
 `);
 
-export interface User {
-  id: number;
-  email: string;
-  name?: string;
-  birth_date?: string;
-  gender?: string;
-  city?: string;
-  created_at: string;
-}
-
-export interface CreateUserData {
-  email: string;
-  password: string;
-  name?: string;
-}
-
-export interface LoginData {
-  email: string;
-  password: string;
-}
-
 // User operations
 export const userDb = {
-  // Create new user
-  async createUser(userData: CreateUserData): Promise<User> {
+  // Create user
+  async createUser(userData: { name: string; email: string; password: string }): Promise<any> {
+    // Hash the password before storing
     const hashedPassword = await hash(userData.password, 12);
     
     const stmt = db.prepare(`
-      INSERT INTO users (email, password, name)
+      INSERT INTO users (name, email, password)
       VALUES (?, ?, ?)
     `);
     
-    const result = stmt.run(userData.email, hashedPassword, userData.name);
+    const result = stmt.run(userData.name, userData.email, hashedPassword);
     
-    const user = db.prepare('SELECT id, email, name, birth_date, gender, city, created_at FROM users WHERE id = ?')
-      .get(result.lastInsertRowid) as User;
+    const user = db.prepare('SELECT id, name, email, created_at FROM users WHERE id = ?')
+      .get(result.lastInsertRowid) as any;
     
     return user;
   },
 
   // Login user
-  async loginUser(loginData: LoginData): Promise<User | null> {
+  async loginUser(loginData: { email: string; password: string }): Promise<any | null> {
     const user = db.prepare('SELECT * FROM users WHERE email = ?').get(loginData.email) as any;
     
     if (!user) return null;
     
+    // Compare the provided password with the hashed password
     const isValid = await compare(loginData.password, user.password);
     if (!isValid) return null;
     
+    // Return user without password
     return {
       id: user.id,
-      email: user.email,
       name: user.name,
+      email: user.email,
       birth_date: user.birth_date,
       gender: user.gender,
       city: user.city,
@@ -128,20 +117,17 @@ export const userDb = {
     };
   },
 
-  // Get user by ID
-  getUserById(id: number): User | null {
-    const user = db.prepare('SELECT id, email, name, birth_date, gender, city, created_at FROM users WHERE id = ?')
-      .get(id) as User;
-    
-    return user || null;
+  // Get user by email
+  getUserByEmail(email: string): any {
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any;
+    return user;
   },
 
-  // Get user by email
-  getUserByEmail(email: string): User | null {
-    const user = db.prepare('SELECT id, email, name, birth_date, gender, city, created_at FROM users WHERE email = ?')
-      .get(email) as User;
-    
-    return user || null;
+  // Get user by ID
+  getUserById(id: number): any {
+    const user = db.prepare('SELECT id, name, email, birth_date, gender, city, created_at FROM users WHERE id = ?')
+      .get(id) as any;
+    return user;
   }
 };
 
@@ -169,8 +155,8 @@ export const productDb = {
   // Create product
   createProduct(productData: Omit<Product, 'id' | 'created_at'>): Product {
     const stmt = db.prepare(`
-      INSERT INTO products (name, description, price, image, category, size, color, stock)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO products (name, description, price, image, category, size, color, stock, available_sizes, size_chart)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     const result = stmt.run(
@@ -181,7 +167,9 @@ export const productDb = {
       productData.category,
       productData.size,
       productData.color,
-      productData.stock
+      productData.stock,
+      JSON.stringify(productData.availableSizes || []),
+      JSON.stringify(productData.sizeChart || {})
     );
     
     const product = db.prepare('SELECT * FROM products WHERE id = ?')
@@ -234,14 +222,21 @@ export const orderDb = {
     }
 
     // Get the complete order
-    return this.getOrderById(orderId)!;
+    const completeOrder = this.getOrderById(orderId);
+    if (!completeOrder) {
+      throw new Error('Failed to retrieve created order');
+    }
+
+    return completeOrder;
   },
 
   // Get order by ID
   getOrderById(id: number): Order | null {
     const orderRow = db.prepare('SELECT * FROM orders WHERE id = ?').get(id) as any;
     
-    if (!orderRow) return null;
+    if (!orderRow) {
+      return null;
+    }
 
     const itemRows = db.prepare(`
       SELECT oi.*, p.name, p.description, p.image, p.category
@@ -269,7 +264,7 @@ export const orderDb = {
       color: row.color
     }));
 
-    return {
+    const order: Order = {
       id: orderRow.id,
       user_id: orderRow.user_id,
       items,
@@ -282,6 +277,8 @@ export const orderDb = {
       created_at: orderRow.created_at,
       updated_at: orderRow.updated_at
     };
+
+    return order;
   },
 
   // Get orders by user ID

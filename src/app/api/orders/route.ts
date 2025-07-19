@@ -32,8 +32,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create the order
-    const order = orderDb.createOrder(orderData);
+    // Validate items have required product data
+    for (const item of orderData.items) {
+      if (!item.product || !item.product.id) {
+        return NextResponse.json(
+          { error: 'Invalid item - missing product information' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Create the order with user ID if provided
+    const order = orderDb.createOrder(orderData, orderData.user_id);
 
     return NextResponse.json({ 
       order,
@@ -42,7 +52,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating order:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
