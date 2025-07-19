@@ -1,11 +1,12 @@
 'use client';
 
-import { useCartStore } from '@/store';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { X, Plus, Minus, ShoppingBag } from 'lucide-react';
+import { useCartStore } from '@/store';
+import { useTranslation } from '@/contexts/LanguageContext';
+import { X, Minus, Plus, ShoppingBag } from 'lucide-react';
 import Image from 'next/image';
-import { useState } from 'react';
 
 interface CartSidebarProps {
   isOpen: boolean;
@@ -14,45 +15,34 @@ interface CartSidebarProps {
 }
 
 export function CartSidebar({ isOpen, onClose, onCheckout }: CartSidebarProps) {
-  const {
-    items,
-    total,
-    itemCount,
-    promoCode,
-    discount,
-    updateQuantity,
-    removeItem,
-    applyPromoCode,
+  const { 
+    items, 
+    total, 
+    itemCount, 
+    promoCode, 
+    discount, 
+    promoMessage, 
+    promoValid, 
+    updateQuantity, 
+    removeItem, 
+    clearCart, 
+    applyPromoCode, 
     removePromoCode,
-    getSubtotal,
-    getDiscount
+    getSubtotal 
   } = useCartStore();
 
+  const { t } = useTranslation();
   const [promoInput, setPromoInput] = useState('');
-  const [promoError, setPromoError] = useState('');
 
   const handleApplyPromo = () => {
-    if (!promoInput.trim()) {
-      setPromoError('Veuillez entrer un code promo');
-      return;
-    }
-
-    const oldDiscount = getDiscount();
-    applyPromoCode(promoInput.trim());
-    
-    // Check if promo code was applied successfully
-    const newDiscount = getDiscount();
-    if (newDiscount === oldDiscount && oldDiscount === 0) {
-      setPromoError('Code promo invalide');
-    } else {
-      setPromoError('');
+    if (promoInput.trim()) {
+      applyPromoCode(promoInput.trim());
       setPromoInput('');
     }
   };
 
   const handleRemovePromo = () => {
     removePromoCode();
-    setPromoError('');
   };
 
   const formatPrice = (price: number) => {
@@ -65,16 +55,17 @@ export function CartSidebar({ isOpen, onClose, onCheckout }: CartSidebarProps) {
     <>
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-black/50 z-40 transition-opacity"
+        className="fixed inset-0 bg-black/50 z-50 transition-opacity"
         onClick={onClose}
       />
       
       {/* Sidebar */}
-      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col">
-        {/* Header - Fixed */}
-        <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Panier ({itemCount})
+      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-xl z-50 flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b">
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <ShoppingBag className="h-5 w-5" />
+            {t('cart.title')} ({itemCount})
           </h2>
           <Button
             variant="ghost"
@@ -86,27 +77,23 @@ export function CartSidebar({ isOpen, onClose, onCheckout }: CartSidebarProps) {
           </Button>
         </div>
 
-        {/* Cart Content */}
-        {items.length === 0 ? (
-          /* Empty Cart */
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-            <ShoppingBag className="h-16 w-16 text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Votre panier est vide
-            </h3>
-            <p className="text-gray-500 mb-6">
-              Ajoutez des articles pour commencer vos achats
-            </p>
-            <Button onClick={onClose} className="bg-gray-800 hover:bg-gray-900">
-              Continuer vos achats
-            </Button>
-          </div>
-        ) : (
-          <>
-            {/* Cart Items - Scrollable */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Cart Items */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <ShoppingBag className="h-12 w-12 text-gray-300 mb-4" />
+              <p className="text-gray-500">{t('cart.empty')}</p>
+              <Button 
+                onClick={onClose}
+                className="mt-4"
+              >
+                {t('cart.continueShopping')}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
               {items.map((item) => (
-                <div key={item.id} className="flex gap-4 p-4 border rounded-lg">
+                <div key={item.id} className="flex gap-3 p-3 bg-gray-50 rounded-lg">
                   <div className="relative w-16 h-16 flex-shrink-0">
                     <Image
                       src={item.product.image}
@@ -117,131 +104,158 @@ export function CartSidebar({ isOpen, onClose, onCheckout }: CartSidebarProps) {
                   </div>
                   
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-gray-900 truncate">
+                    <h4 className="font-medium text-gray-900 text-sm truncate">
                       {item.product.name}
                     </h4>
-                    <p className="text-sm text-gray-500">
-                      {item.size && `Taille: ${item.size}`}
-                      {item.size && item.color && ' • '}
-                      {item.color && `Couleur: ${item.color}`}
-                    </p>
-                    <p className="text-sm font-medium text-gray-900">
-                      {formatPrice(item.product.price)}
-                    </p>
-                    
-                    {/* Quantity Controls */}
-                    <div className="flex items-center gap-2 mt-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                      >
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="w-8 text-center text-sm font-medium">
-                        {item.quantity}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                      >
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeItem(item.id)}
-                        className="ml-auto text-red-600 hover:text-red-700"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {item.size && <span>{t('products.size')}: {item.size}</span>}
+                      {item.size && item.color && <span> • </span>}
+                      {item.color && <span>{t('products.color')}: {item.color}</span>}
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="text-sm font-medium w-8 text-center">
+                          {item.quantity}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      
+                      <div className="text-right">
+                        <div className="text-sm font-medium">
+                          {formatPrice(item.product.price * item.quantity)}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs text-red-600 hover:text-red-700 p-0 h-auto"
+                          onClick={() => removeItem(item.id)}
+                        >
+                          {t('cart.remove')}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
+          )}
+        </div>
 
-            {/* Bottom Section - Fixed */}
-            <div className="flex-shrink-0 border-t bg-white">
-              {/* Promo Code Section */}
-              <div className="p-4 border-b">
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-gray-700">
-                    Code promo
-                  </label>
-                  {promoCode ? (
-                    <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-md">
-                      <span className="text-sm text-green-700 font-medium">
+        {/* Bottom Section - Fixed */}
+        {items.length > 0 && (
+          <div className="border-t bg-white p-4 space-y-4">
+            {/* Promo Code Section */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">{t('cart.promoCode')}</label>
+              
+              {promoCode ? (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-green-800">
                         {promoCode}
                       </span>
                       <Button
                         variant="ghost"
                         size="sm"
+                        className="text-green-600 hover:text-green-700 p-0 h-auto text-xs"
                         onClick={handleRemovePromo}
-                        className="ml-auto text-red-600 hover:text-red-700"
                       >
-                        <X className="h-3 w-3" />
+                        {t('cart.removePromo')}
                       </Button>
                     </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Entrez votre code"
-                        value={promoInput}
-                        onChange={(e) => setPromoInput(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleApplyPromo()}
-                        className="flex-1"
-                      />
-                      <Button
-                        variant="outline"
-                        onClick={handleApplyPromo}
-                        disabled={!promoInput.trim()}
-                        className="px-4"
-                      >
-                        Appliquer
-                      </Button>
-                    </div>
-                  )}
-                  {promoError && (
-                    <p className="text-sm text-red-600">{promoError}</p>
-                  )}
+                    {promoMessage && (
+                      <p className="text-xs text-green-600 mt-1">{promoMessage}</p>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder={t('cart.enterCode')}
+                    value={promoInput}
+                    onChange={(e) => setPromoInput(e.target.value)}
+                    className="text-sm"
+                    onKeyPress={(e) => e.key === 'Enter' && handleApplyPromo()}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleApplyPromo}
+                    disabled={!promoInput.trim()}
+                  >
+                    {t('cart.applyPromo')}
+                  </Button>
+                </div>
+              )}
+              
+              {promoMessage && !promoValid && (
+                <p className="text-xs text-red-600">{promoMessage}</p>
+              )}
+            </div>
 
-              {/* Order Summary & Checkout */}
-              <div className="p-4 bg-gray-50">
-                <div className="space-y-2 mb-4">
-                  <div className="flex justify-between text-sm">
-                    <span>Sous-total</span>
-                    <span>{formatPrice(getSubtotal())}</span>
-                  </div>
-                  
-                  {getDiscount() > 0 && (
-                    <div className="flex justify-between text-sm text-green-600">
-                      <span>Remise</span>
-                      <span>-{formatPrice(getDiscount())}</span>
-                    </div>
-                  )}
-                  
-                  <div className="flex justify-between font-semibold text-lg pt-2 border-t">
-                    <span>Total</span>
-                    <span>{formatPrice(total)}</span>
-                  </div>
+            {/* Order Summary */}
+            <div className="space-y-2 pt-2 border-t">
+              <div className="flex justify-between text-sm">
+                <span>{t('cart.subtotal')}</span>
+                <span>{formatPrice(getSubtotal())}</span>
+              </div>
+              
+              {discount > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>{t('cart.discount')} ({promoCode})</span>
+                  <span>-{formatPrice(discount)}</span>
                 </div>
-                
+              )}
+              
+              <div className="flex justify-between font-semibold text-lg pt-2 border-t">
+                <span>{t('cart.total')}</span>
+                <span>{formatPrice(total)}</span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2">
+              <Button
+                onClick={onCheckout}
+                className="w-full bg-gray-800 hover:bg-gray-900 text-white"
+              >
+                {t('cart.checkout')}
+              </Button>
+              
+              <div className="flex gap-2">
                 <Button
-                  onClick={onCheckout}
-                  className="w-full bg-gray-800 hover:bg-gray-900 text-white font-medium py-3 text-base"
-                  disabled={items.length === 0}
+                  variant="outline"
+                  onClick={onClose}
+                  className="flex-1"
                 >
-                  Procéder au paiement
+                  {t('cart.continueShopping')}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={clearCart}
+                  className="text-red-600 hover:text-red-700 hover:border-red-300"
+                >
+                  {t('cart.clear')}
                 </Button>
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     </>

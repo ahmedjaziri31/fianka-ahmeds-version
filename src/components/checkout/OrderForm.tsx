@@ -33,27 +33,170 @@ export function OrderForm({ isOpen, onClose, onSubmit }: OrderFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleInputChange = (field: keyof ShippingAddress, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
+    // Apply formatting and validation based on field type
+    let formattedValue = value;
+    
+    // Phone number formatting and validation
+    if (field === 'phone') {
+      // Remove all non-numeric characters
+      const numericValue = value.replace(/\D/g, '');
+      
+      // Limit to 8 digits for Tunisian phone numbers
+      if (numericValue.length <= 8) {
+        formattedValue = numericValue;
+      } else {
+        return; // Don't update if more than 8 digits
+      }
     }
+    
+    // Postal code formatting
+    if (field === 'postalCode') {
+      // Remove all non-numeric characters and limit to 4 digits
+      const numericValue = value.replace(/\D/g, '');
+      if (numericValue.length <= 4) {
+        formattedValue = numericValue;
+      } else {
+        return; // Don't update if more than 4 digits
+      }
+    }
+    
+    // Name fields - only letters and spaces
+    if (field === 'firstName' || field === 'lastName') {
+      // Allow only letters, spaces, hyphens, and apostrophes
+      if (!/^[a-zA-ZÀ-ÿ\s\-']*$/.test(value)) {
+        return; // Don't update if invalid characters
+      }
+      formattedValue = value;
+    }
+    
+    // City field - only letters and spaces
+    if (field === 'city') {
+      // Allow only letters, spaces, hyphens, and apostrophes
+      if (!/^[a-zA-ZÀ-ÿ\s\-']*$/.test(value)) {
+        return; // Don't update if invalid characters
+      }
+      formattedValue = value;
+    }
+
+    setFormData(prev => ({ ...prev, [field]: formattedValue }));
+    
+    // Real-time validation
+    validateField(field, formattedValue);
+  };
+
+  const validateField = (field: keyof ShippingAddress, value: string) => {
+    let error = '';
+    
+    switch (field) {
+      case 'firstName':
+        if (!value.trim()) {
+          error = 'Le prénom est requis';
+        } else if (value.trim().length < 2) {
+          error = 'Le prénom doit contenir au moins 2 caractères';
+        }
+        break;
+        
+      case 'lastName':
+        if (!value.trim()) {
+          error = 'Le nom est requis';
+        } else if (value.trim().length < 2) {
+          error = 'Le nom doit contenir au moins 2 caractères';
+        }
+        break;
+        
+      case 'email':
+        if (!value.trim()) {
+          error = 'L\'email est requis';
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          error = 'Format d\'email invalide (ex: nom@example.com)';
+        }
+        break;
+        
+      case 'phone':
+        if (!value.trim()) {
+          error = 'Le téléphone est requis';
+        } else if (value.length !== 8) {
+          error = 'Le numéro doit contenir exactement 8 chiffres';
+        } else if (!/^[2-9]/.test(value)) {
+          error = 'Le numéro doit commencer par 2, 3, 4, 5, 7, 9';
+        }
+        break;
+        
+      case 'address':
+        if (!value.trim()) {
+          error = 'L\'adresse est requise';
+        } else if (value.trim().length < 10) {
+          error = 'L\'adresse doit être plus détaillée (min. 10 caractères)';
+        }
+        break;
+        
+      case 'city':
+        if (!value.trim()) {
+          error = 'La ville est requise';
+        } else if (value.trim().length < 2) {
+          error = 'Le nom de la ville doit contenir au moins 2 caractères';
+        }
+        break;
+        
+      case 'postalCode':
+        if (!value.trim()) {
+          error = 'Le code postal est requis';
+        } else if (value.length !== 4) {
+          error = 'Le code postal doit contenir exactement 4 chiffres';
+        }
+        break;
+    }
+    
+    setErrors(prev => ({ ...prev, [field]: error }));
   };
 
   const validateForm = (): boolean => {
     const newErrors: Partial<ShippingAddress> = {};
 
-    if (!formData.firstName.trim()) newErrors.firstName = 'Le prénom est requis';
-    if (!formData.lastName.trim()) newErrors.lastName = 'Le nom est requis';
+    // Validate all fields
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = 'Le prénom est requis';
+    } else if (formData.firstName.trim().length < 2) {
+      newErrors.firstName = 'Le prénom doit contenir au moins 2 caractères';
+    }
+
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = 'Le nom est requis';
+    } else if (formData.lastName.trim().length < 2) {
+      newErrors.lastName = 'Le nom doit contenir au moins 2 caractères';
+    }
+
     if (!formData.email.trim()) {
       newErrors.email = 'L\'email est requis';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Email invalide';
+      newErrors.email = 'Format d\'email invalide (ex: nom@example.com)';
     }
-    if (!formData.phone.trim()) newErrors.phone = 'Le téléphone est requis';
-    if (!formData.address.trim()) newErrors.address = 'L\'adresse est requise';
-    if (!formData.city.trim()) newErrors.city = 'La ville est requise';
-    if (!formData.postalCode.trim()) newErrors.postalCode = 'Le code postal est requis';
+
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Le téléphone est requis';
+    } else if (formData.phone.length !== 8) {
+      newErrors.phone = 'Le numéro doit contenir exactement 8 chiffres';
+    } else if (!/^[2-9]/.test(formData.phone)) {
+      newErrors.phone = 'Le numéro doit commencer par 2, 3, 4, 5, 7, 9';
+    }
+
+    if (!formData.address.trim()) {
+      newErrors.address = 'L\'adresse est requise';
+    } else if (formData.address.trim().length < 10) {
+      newErrors.address = 'L\'adresse doit être plus détaillée (min. 10 caractères)';
+    }
+
+    if (!formData.city.trim()) {
+      newErrors.city = 'La ville est requise';
+    } else if (formData.city.trim().length < 2) {
+      newErrors.city = 'Le nom de la ville doit contenir au moins 2 caractères';
+    }
+
+    if (!formData.postalCode.trim()) {
+      newErrors.postalCode = 'Le code postal est requis';
+    } else if (formData.postalCode.length !== 4) {
+      newErrors.postalCode = 'Le code postal doit contenir exactement 4 chiffres';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -183,11 +326,15 @@ export function OrderForm({ isOpen, onClose, onSubmit }: OrderFormProps) {
                             id="firstName"
                             value={formData.firstName}
                             onChange={(e) => handleInputChange('firstName', e.target.value)}
-                            placeholder="Votre prénom"
-                            className={errors.firstName ? 'border-red-500' : ''}
+                            placeholder="Ex: Ahmed, Fatima"
+                            className={errors.firstName ? 'border-red-500' : formData.firstName && !errors.firstName ? 'border-green-500' : ''}
+                            maxLength={50}
                           />
                           {errors.firstName && (
                             <p className="text-sm text-red-600 mt-1">{errors.firstName}</p>
+                          )}
+                          {formData.firstName && !errors.firstName && (
+                            <p className="text-sm text-green-600 mt-1">✓ Prénom valide</p>
                           )}
                         </div>
                         
@@ -197,11 +344,15 @@ export function OrderForm({ isOpen, onClose, onSubmit }: OrderFormProps) {
                             id="lastName"
                             value={formData.lastName}
                             onChange={(e) => handleInputChange('lastName', e.target.value)}
-                            placeholder="Votre nom"
-                            className={errors.lastName ? 'border-red-500' : ''}
+                            placeholder="Ex: Ben Ali, Trabelsi"
+                            className={errors.lastName ? 'border-red-500' : formData.lastName && !errors.lastName ? 'border-green-500' : ''}
+                            maxLength={50}
                           />
                           {errors.lastName && (
                             <p className="text-sm text-red-600 mt-1">{errors.lastName}</p>
+                          )}
+                          {formData.lastName && !errors.lastName && (
+                            <p className="text-sm text-green-600 mt-1">✓ Nom valide</p>
                           )}
                         </div>
                       </div>
@@ -213,40 +364,56 @@ export function OrderForm({ isOpen, onClose, onSubmit }: OrderFormProps) {
                           type="email"
                           value={formData.email}
                           onChange={(e) => handleInputChange('email', e.target.value)}
-                          placeholder="votre@email.com"
-                          className={errors.email ? 'border-red-500' : ''}
+                          placeholder="exemple@email.com"
+                          className={errors.email ? 'border-red-500' : formData.email && !errors.email ? 'border-green-500' : ''}
+                          maxLength={100}
                         />
                         {errors.email && (
                           <p className="text-sm text-red-600 mt-1">{errors.email}</p>
                         )}
-                      </div>
-
-                      <div>
-                        <Label htmlFor="phone">Téléphone *</Label>
-                        <Input
-                          id="phone"
-                          type="tel"
-                          value={formData.phone}
-                          onChange={(e) => handleInputChange('phone', e.target.value)}
-                          placeholder="Votre numéro de téléphone"
-                          className={errors.phone ? 'border-red-500' : ''}
-                        />
-                        {errors.phone && (
-                          <p className="text-sm text-red-600 mt-1">{errors.phone}</p>
+                        {formData.email && !errors.email && (
+                          <p className="text-sm text-green-600 mt-1">✓ Email valide</p>
                         )}
                       </div>
 
                       <div>
-                        <Label htmlFor="address">Adresse complète *</Label>
+                        <Label htmlFor="phone">Téléphone * <span className="text-xs text-gray-500">(8 chiffres)</span></Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">+216</span>
+                          <Input
+                            id="phone"
+                            type="tel"
+                            value={formData.phone}
+                            onChange={(e) => handleInputChange('phone', e.target.value)}
+                            placeholder="12345678"
+                            className={`pl-14 ${errors.phone ? 'border-red-500' : formData.phone && !errors.phone ? 'border-green-500' : ''}`}
+                            maxLength={8}
+                          />
+                        </div>
+                        {errors.phone && (
+                          <p className="text-sm text-red-600 mt-1">{errors.phone}</p>
+                        )}
+                        {formData.phone && !errors.phone && (
+                          <p className="text-sm text-green-600 mt-1">✓ Numéro valide (+216 {formData.phone})</p>
+                        )}
+                        <p className="text-xs text-gray-500 mt-1">Format: 8 chiffres (ex: 20123456, 98765432)</p>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="address">Adresse complète * <span className="text-xs text-gray-500">(min. 10 caractères)</span></Label>
                         <Input
                           id="address"
                           value={formData.address}
                           onChange={(e) => handleInputChange('address', e.target.value)}
-                          placeholder="Votre adresse complète"
-                          className={errors.address ? 'border-red-500' : ''}
+                          placeholder="Ex: 15 Rue de la République, Appartement 3"
+                          className={errors.address ? 'border-red-500' : formData.address && !errors.address ? 'border-green-500' : ''}
+                          maxLength={200}
                         />
                         {errors.address && (
                           <p className="text-sm text-red-600 mt-1">{errors.address}</p>
+                        )}
+                        {formData.address && !errors.address && (
+                          <p className="text-sm text-green-600 mt-1">✓ Adresse valide</p>
                         )}
                       </div>
 
@@ -257,25 +424,33 @@ export function OrderForm({ isOpen, onClose, onSubmit }: OrderFormProps) {
                             id="city"
                             value={formData.city}
                             onChange={(e) => handleInputChange('city', e.target.value)}
-                            placeholder="Votre ville"
-                            className={errors.city ? 'border-red-500' : ''}
+                            placeholder="Ex: Tunis, Sfax, Sousse"
+                            className={errors.city ? 'border-red-500' : formData.city && !errors.city ? 'border-green-500' : ''}
+                            maxLength={50}
                           />
                           {errors.city && (
                             <p className="text-sm text-red-600 mt-1">{errors.city}</p>
                           )}
+                          {formData.city && !errors.city && (
+                            <p className="text-sm text-green-600 mt-1">✓ Ville valide</p>
+                          )}
                         </div>
                         
                         <div>
-                          <Label htmlFor="postalCode">Code postal *</Label>
+                          <Label htmlFor="postalCode">Code postal * <span className="text-xs text-gray-500">(4 chiffres)</span></Label>
                           <Input
                             id="postalCode"
                             value={formData.postalCode}
                             onChange={(e) => handleInputChange('postalCode', e.target.value)}
-                            placeholder="Code postal"
-                            className={errors.postalCode ? 'border-red-500' : ''}
+                            placeholder="1000"
+                            className={errors.postalCode ? 'border-red-500' : formData.postalCode && !errors.postalCode ? 'border-green-500' : ''}
+                            maxLength={4}
                           />
                           {errors.postalCode && (
                             <p className="text-sm text-red-600 mt-1">{errors.postalCode}</p>
+                          )}
+                          {formData.postalCode && !errors.postalCode && (
+                            <p className="text-sm text-green-600 mt-1">✓ Code postal valide</p>
                           )}
                         </div>
                       </div>

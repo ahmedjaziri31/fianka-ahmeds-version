@@ -1,8 +1,18 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Cart, CartItem, Product } from '@/types';
+import { CartItem, Product } from '@/types';
+import { validatePromoCode, calculateDiscount } from '@/lib/promo-codes';
 
-interface CartStore extends Cart {
+interface CartStore {
+  // State
+  items: CartItem[];
+  total: number;
+  itemCount: number;
+  promoCode: string;
+  discount: number;
+  promoMessage: string;
+  promoValid: boolean;
+
   // Actions
   addItem: (product: Product, quantity?: number, size?: string, color?: string) => void;
   removeItem: (itemId: string) => void;
@@ -11,26 +21,19 @@ interface CartStore extends Cart {
   applyPromoCode: (code: string) => void;
   removePromoCode: () => void;
   
-  // Computed values
-  getItemCount: () => number;
+  // Computed getters
   getTotal: () => number;
   getSubtotal: () => number;
   getDiscount: () => number;
 }
 
-// Helper function to calculate totals
-const calculateTotals = (items: CartItem[], promoCode?: string, discount?: number) => {
+const calculateTotals = (items: CartItem[], promoCode: string = '', discount: number = 0) => {
   const subtotal = items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-  const discountAmount = discount || 0;
-  const total = subtotal - discountAmount;
+  const actualDiscount = promoCode ? calculateDiscount(subtotal, promoCode) : 0;
+  const total = subtotal - actualDiscount;
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
   
-  return { subtotal, total, itemCount, discount: discountAmount };
-};
-
-// Helper function to generate cart item ID
-const generateCartItemId = (productId: number, size?: string, color?: string) => {
-  return `${productId}-${size || 'default'}-${color || 'default'}`;
+  return { subtotal, discount: actualDiscount, total, itemCount };
 };
 
 export const useCartStore = create<CartStore>()(
@@ -40,78 +43,83 @@ export const useCartStore = create<CartStore>()(
       items: [],
       total: 0,
       itemCount: 0,
-      promoCode: undefined,
-      discount: undefined,
+      promoCode: '',
+      discount: 0,
+      promoMessage: '',
+      promoValid: false,
 
       // Actions
-      addItem: (product: Product, quantity = 1, size?: string, color?: string) => {
-        const itemId = generateCartItemId(product.id, size, color);
-        const currentItems = get().items;
-        const existingItemIndex = currentItems.findIndex(item => item.id === itemId);
-
-        let newItems: CartItem[];
+      addItem: (product, quantity = 1, size, color) => {
+        const itemId = `${product.id}-${size || 'default'}-${color || 'default'}`;
         
-        if (existingItemIndex >= 0) {
-          // Update existing item quantity
-          newItems = currentItems.map((item, index) => 
-            index === existingItemIndex 
-              ? { ...item, quantity: item.quantity + quantity }
-              : item
-          );
-        } else {
-          // Add new item
-          const newItem: CartItem = {
-            id: itemId,
-            product,
-            quantity,
-            size,
-            color
+        set((state) => {
+          const existingItem = state.items.find(item => item.id === itemId);
+          let newItems;
+          
+          if (existingItem) {
+            newItems = state.items.map(item =>
+              item.id === itemId
+                ? { ...item, quantity: item.quantity + quantity }
+                : item
+            );
+          } else {
+            const newItem: CartItem = {
+              id: itemId,
+              product,
+              quantity,
+              size,
+              color,
+            };
+            newItems = [...state.items, newItem];
+          }
+          
+          const { total, itemCount, discount } = calculateTotals(newItems, state.promoCode, state.discount);
+          
+          return {
+            ...state,
+            items: newItems,
+            total,
+            itemCount,
+            discount
           };
-          newItems = [...currentItems, newItem];
-        }
-
-        const { total, itemCount, discount } = calculateTotals(newItems, get().promoCode, get().discount);
-        
-        set({
-          items: newItems,
-          total,
-          itemCount,
-          discount
         });
       },
 
-      removeItem: (itemId: string) => {
-        const currentItems = get().items;
-        const newItems = currentItems.filter(item => item.id !== itemId);
-        
-        const { total, itemCount, discount } = calculateTotals(newItems, get().promoCode, get().discount);
-        
-        set({
-          items: newItems,
-          total,
-          itemCount,
-          discount
+      removeItem: (itemId) => {
+        set((state) => {
+          const newItems = state.items.filter(item => item.id !== itemId);
+          const { total, itemCount, discount } = calculateTotals(newItems, state.promoCode, state.discount);
+          
+          return {
+            ...state,
+            items: newItems,
+            total,
+            itemCount,
+            discount
+          };
         });
       },
 
-      updateQuantity: (itemId: string, quantity: number) => {
+      updateQuantity: (itemId, quantity) => {
         if (quantity <= 0) {
           get().removeItem(itemId);
           return;
         }
 
-        const currentItems = get().items;
-        const newItems = currentItems.map(item =>
-          item.id === itemId ? { ...item, quantity } : item
-        );
-
-        const { total, itemCount, discount } = calculateTotals(newItems, get().promoCode, get().discount);
-        
-        set({
-          items: newItems,
-          total,
-          itemCount,
-          discount
+        set((state) => {
+          const newItems = state.items.map(item =>
+            item.id === itemId ? { ...item, quantity } : item
+          );
+          
+          const { total, itemCount, discount } = calculateTotals(newItems, state.promoCode, state.discount);
+          
+          return {
+            ...state,
+            items: newItems,
+            total,
+            itemCount,
+            discount
+          };
         });
       },
 
@@ -120,56 +128,49 @@ export const useCartStore = create<CartStore>()(
           items: [],
           total: 0,
           itemCount: 0,
-          promoCode: undefined,
-          discount: undefined
+          promoCode: '',
+          discount: 0,
+          promoMessage: '',
+          promoValid: false
         });
       },
 
-      applyPromoCode: (code: string) => {
-        // Simple promo code logic - in real app, this would call an API
-        let discount = 0;
-        const subtotal = get().getSubtotal();
+      applyPromoCode: (code) => {
+        const promoResult = validatePromoCode(code);
         
-        switch (code.toUpperCase()) {
-          case 'WELCOME10':
-            discount = subtotal * 0.10; // 10% discount
-            break;
-          case 'SAVE20':
-            discount = subtotal * 0.20; // 20% discount
-            break;
-          case 'FIANKA15':
-            discount = subtotal * 0.15; // 15% discount
-            break;
-          default:
-            discount = 0;
-        }
-
-        const total = subtotal - discount;
-        
-        set({
-          promoCode: code,
-          discount,
-          total
+        set((state) => {
+          const { total, itemCount, discount } = calculateTotals(state.items, promoResult.valid ? code : '', 0);
+          
+          return {
+            ...state,
+            promoCode: promoResult.valid ? code.trim().toUpperCase() : '',
+            discount,
+            total,
+            promoMessage: promoResult.message,
+            promoValid: promoResult.valid
+          };
         });
       },
 
       removePromoCode: () => {
-        const subtotal = get().getSubtotal();
-        set({
-          promoCode: undefined,
-          discount: undefined,
-          total: subtotal
+        set((state) => {
+          const { total, itemCount } = calculateTotals(state.items, '', 0);
+          
+          return {
+            ...state,
+            promoCode: '',
+            discount: 0,
+            total,
+            promoMessage: '',
+            promoValid: false
+          };
         });
       },
 
-      // Computed values
-      getItemCount: () => {
-        return get().items.reduce((sum, item) => sum + item.quantity, 0);
-      },
-
       getTotal: () => {
-        const subtotal = get().getSubtotal();
-        const discount = get().discount || 0;
+        const state = get();
+        const subtotal = state.getSubtotal();
+        const discount = state.getDiscount();
         return subtotal - discount;
       },
 
@@ -178,7 +179,8 @@ export const useCartStore = create<CartStore>()(
       },
 
       getDiscount: () => {
-        return get().discount || 0;
+        const state = get();
+        return state.promoCode ? calculateDiscount(state.getSubtotal(), state.promoCode) : 0;
       }
     }),
     {
@@ -186,16 +188,25 @@ export const useCartStore = create<CartStore>()(
       partialize: (state) => ({
         items: state.items,
         promoCode: state.promoCode,
-        discount: state.discount
+        discount: state.discount,
+        promoValid: state.promoValid
       }),
       // Disable persistence during SSR
       skipHydration: true,
       // Rehydrate cart totals on load
       onRehydrateStorage: () => (state) => {
         if (state) {
-          const { total, itemCount } = calculateTotals(state.items, state.promoCode, state.discount);
+          const { total, itemCount, discount } = calculateTotals(state.items, state.promoCode, state.discount);
           state.total = total;
           state.itemCount = itemCount;
+          state.discount = discount;
+          
+          // Revalidate promo code on load
+          if (state.promoCode) {
+            const promoResult = validatePromoCode(state.promoCode);
+            state.promoMessage = promoResult.message;
+            state.promoValid = promoResult.valid;
+          }
         }
       }
     }

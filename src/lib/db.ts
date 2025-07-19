@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import { hash, compare } from 'bcryptjs';
 import { CreateOrderData, Order, CartItem, Product } from '@/types';
+import { calculateDiscount } from '@/lib/promo-codes';
 
 // Initialize database
 const dbPath = path.join(process.cwd(), 'database.sqlite');
@@ -72,6 +73,17 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES orders (id),
     FOREIGN KEY (product_id) REFERENCES products (id)
+  )
+`);
+
+// Create newsletter_subscribers table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    is_active BOOLEAN DEFAULT 1,
+    promo_code_used TEXT,
+    subscribed_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )
 `);
 
@@ -184,7 +196,9 @@ export const orderDb = {
   // Create order
   createOrder(orderData: CreateOrderData, userId?: number): Order {
     const subtotal = orderData.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-    const discount = 0; // TODO: Implement promo code logic
+    
+    // Calculate discount using promo code system
+    const discount = orderData.promo_code ? calculateDiscount(subtotal, orderData.promo_code) : 0;
     const total = subtotal - discount;
 
     const stmt = db.prepare(`
@@ -281,6 +295,13 @@ export const orderDb = {
     return order;
   },
 
+  // Get all orders (for admin)
+  getAllOrders(): Order[] {
+    const orderRows = db.prepare('SELECT * FROM orders ORDER BY created_at DESC').all() as any[];
+    
+    return orderRows.map(row => this.getOrderById(row.id)).filter(Boolean) as Order[];
+  },
+
   // Get orders by user ID
   getOrdersByUserId(userId: number): Order[] {
     const orderRows = db.prepare('SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC').all(userId) as any[];
@@ -292,6 +313,96 @@ export const orderDb = {
   updateOrderStatus(id: number, status: Order['status']): boolean {
     const stmt = db.prepare('UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
     const result = stmt.run(status, id);
+    return result.changes > 0;
+  },
+
+  // Get order statistics (for admin dashboard)
+  getOrderStats(): { total: number; recent: number } {
+    // Get total orders count
+    const totalResult = db.prepare('SELECT COUNT(*) as count FROM orders').get() as { count: number };
+    const total = totalResult.count;
+
+    // Get recent orders (last 7 days)
+    const recentResult = db.prepare(`
+      SELECT COUNT(*) as count FROM orders 
+      WHERE created_at >= datetime('now', '-7 days')
+    `).get() as { count: number };
+    const recent = recentResult.count;
+
+    return { total, recent };
+  }
+};
+
+// Newsletter operations
+export const newsletterDb = {
+  // Add subscriber
+  addSubscriber(email: string, promoCode?: string): { id: number; email: string; subscribed_at: string } {
+    try {
+      const stmt = db.prepare(`
+        INSERT INTO newsletter_subscribers (email, promo_code_used)
+        VALUES (?, ?)
+      `);
+      
+      const result = stmt.run(email, promoCode || null);
+      
+      const subscriber = db.prepare('SELECT id, email, subscribed_at FROM newsletter_subscribers WHERE id = ?')
+        .get(result.lastInsertRowid) as any;
+      
+      return subscriber;
+    } catch (error: any) {
+      // If email already exists, return existing subscriber
+      if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        const existing = db.prepare('SELECT id, email, subscribed_at FROM newsletter_subscribers WHERE email = ?')
+          .get(email) as any;
+        return existing;
+      }
+      throw error;
+    }
+  },
+
+  // Get all subscribers
+  getAllSubscribers(): any[] {
+    const subscribers = db.prepare(`
+      SELECT id, email, is_active, promo_code_used, subscribed_at 
+      FROM newsletter_subscribers 
+      ORDER BY subscribed_at DESC
+    `).all();
+    
+    return subscribers.map(sub => ({
+      id: sub.id.toString(),
+      email: sub.email,
+      isActive: Boolean(sub.is_active),
+      promoCodeUsed: sub.promo_code_used,
+      subscribedAt: sub.subscribed_at
+    }));
+  },
+
+  // Get subscriber statistics
+  getSubscriberStats(): { total: number; recent: number } {
+    // Get total subscribers count
+    const totalResult = db.prepare('SELECT COUNT(*) as count FROM newsletter_subscribers').get() as { count: number };
+    const total = totalResult.count;
+
+    // Get recent subscribers (last 7 days)
+    const recentResult = db.prepare(`
+      SELECT COUNT(*) as count FROM newsletter_subscribers 
+      WHERE subscribed_at >= datetime('now', '-7 days')
+    `).get() as { count: number };
+    const recent = recentResult.count;
+
+    return { total, recent };
+  },
+
+  // Check if email exists
+  emailExists(email: string): boolean {
+    const result = db.prepare('SELECT id FROM newsletter_subscribers WHERE email = ?').get(email);
+    return !!result;
+  },
+
+  // Update subscriber status
+  updateSubscriberStatus(email: string, isActive: boolean): boolean {
+    const stmt = db.prepare('UPDATE newsletter_subscribers SET is_active = ? WHERE email = ?');
+    const result = stmt.run(isActive ? 1 : 0, email);
     return result.changes > 0;
   }
 };
