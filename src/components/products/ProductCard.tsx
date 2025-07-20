@@ -2,7 +2,9 @@
 
 import { Product } from '@/types';
 import { useCartStore } from '@/store';
+import { useTranslation } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
+import { SizeGuide } from '@/components/ui/SizeGuide';
 import Image from 'next/image';
 import { ShoppingCart, Info, X } from 'lucide-react';
 import { useState } from 'react';
@@ -13,9 +15,10 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCartStore();
+  const { t } = useTranslation();
   const [isAdding, setIsAdding] = useState(false);
   const [selectedSize, setSelectedSize] = useState<string>('');
-  const [showSizeChart, setShowSizeChart] = useState(false);
+  const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showSizeModal, setShowSizeModal] = useState(false);
 
   const handleAddToCartClick = () => {
@@ -51,15 +54,48 @@ export function ProductCard({ product }: ProductCardProps) {
     return `${price.toFixed(2)}dt`;
   };
 
+  // Function to get translated product description
+  const getTranslatedDescription = (product: Product) => {
+    // Map product names to translation keys
+    const descriptionMap: Record<string, string> = {
+      'T-shirt Unisexe': 'products.descriptions.tshirtUnisex',
+      'Pull Homme Blue': 'products.descriptions.sweaterHomme',
+      'Pull Homme Vanille': 'products.descriptions.sweaterHomme',
+      'Pull Femme Élégant': 'products.descriptions.dressFemme',
+      'Pull Fianka': 'products.descriptions.jacketFianka',
+    };
+
+    const translationKey = descriptionMap[product.name];
+    if (translationKey) {
+      return t(translationKey);
+    }
+
+    // Fallback to default description or original description
+    return product.description || t('products.descriptions.defaultDescription');
+  };
+
+  // Function to determine product category for size guide
+  const getProductCategory = (product: Product): 'homme' | 'femme' | 'unisexe' => {
+    if (product.category) {
+      return product.category as 'homme' | 'femme' | 'unisexe';
+    }
+    
+    // Fallback based on product name
+    const name = product.name.toLowerCase();
+    if (name.includes('homme') || name.includes('men')) return 'homme';
+    if (name.includes('femme') || name.includes('women')) return 'femme';
+    return 'unisexe';
+  };
+
   const renderSizeSelectionModal = () => {
     if (!showSizeModal) return null;
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 bg-transparent backdrop-blur-sm flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-lg max-w-md w-full">
           <div className="p-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Choisir la taille</h3>
+              <h3 className="text-lg font-semibold">{t('products.selectSize')}</h3>
               <button
                 onClick={() => setShowSizeModal(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -88,16 +124,14 @@ export function ProductCard({ product }: ProductCardProps) {
             {/* Size Selection */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
-                <label className="text-sm font-medium text-gray-700">Sélectionner une taille:</label>
-                {product.sizeChart && Object.keys(product.sizeChart).length > 0 && (
-                  <button
-                    onClick={() => setShowSizeChart(true)}
-                    className="flex items-center text-xs text-blue-600 hover:text-blue-800"
-                  >
-                    <Info className="w-3 h-3 mr-1" />
-                    Guide des tailles
-                  </button>
-                )}
+                <label className="text-sm font-medium text-gray-700">{t('products.selectSize')}:</label>
+                <button
+                  onClick={() => setShowSizeGuide(true)}
+                  className="flex items-center text-xs text-blue-600 hover:text-blue-800"
+                >
+                  <Info className="w-3 h-3 mr-1" />
+                  {t('products.sizeChart')}
+                </button>
               </div>
               
               <div className="grid grid-cols-5 gap-2">
@@ -124,131 +158,20 @@ export function ProductCard({ product }: ProductCardProps) {
                 variant="outline"
                 className="flex-1"
               >
-                Annuler
+                {t('general.cancel')}
               </Button>
               <Button
                 onClick={() => handleAddToCart(selectedSize)}
                 disabled={!selectedSize || isAdding}
                 className="flex-1 bg-gray-900 hover:bg-gray-800 text-white"
               >
-                {isAdding ? 'Ajout...' : 'Ajouter au panier'}
+                {isAdding ? t('general.loading') : t('products.addToCart')}
               </Button>
             </div>
           </div>
         </div>
       </div>
-    );
-  };
-
-  const renderSizeChart = () => {
-    if (!product.sizeChart || Object.keys(product.sizeChart).length === 0) {
-      return null;
-    }
-
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-          <div className="p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Guide des tailles - {product.name}</h3>
-              <button
-                onClick={() => setShowSizeChart(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse border border-gray-300">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="border border-gray-300 px-4 py-2 text-left">Désignation</th>
-                    {Object.keys(product.sizeChart).map(size => (
-                      <th key={size} className="border border-gray-300 px-4 py-2 text-center">{size}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="border border-gray-300 px-4 py-2 font-medium">Longueur totale</td>
-                    {Object.values(product.sizeChart).map((measurements, index) => (
-                      <td key={index} className="border border-gray-300 px-4 py-2 text-center">
-                        {measurements.longueurTotale}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="border border-gray-300 px-4 py-2 font-medium">1/2 Tour de poitrine</td>
-                    {Object.values(product.sizeChart).map((measurements, index) => (
-                      <td key={index} className="border border-gray-300 px-4 py-2 text-center">
-                        {measurements.tourPoitrine}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="border border-gray-300 px-4 py-2 font-medium">1/2 Tour de bas</td>
-                    {Object.values(product.sizeChart).map((measurements, index) => (
-                      <td key={index} className="border border-gray-300 px-4 py-2 text-center">
-                        {measurements.tourBas}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="border border-gray-300 px-4 py-2 font-medium">Largeur épaule à épaule</td>
-                    {Object.values(product.sizeChart).map((measurements, index) => (
-                      <td key={index} className="border border-gray-300 px-4 py-2 text-center">
-                        {measurements.largeurEpaule}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="border border-gray-300 px-4 py-2 font-medium">Écart encolure dos</td>
-                    {Object.values(product.sizeChart).map((measurements, index) => (
-                      <td key={index} className="border border-gray-300 px-4 py-2 text-center">
-                        {measurements.ecartEncolure}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="border border-gray-300 px-4 py-2 font-medium">Hauteur col</td>
-                    {Object.values(product.sizeChart).map((measurements, index) => (
-                      <td key={index} className="border border-gray-300 px-4 py-2 text-center">
-                        {measurements.hauteurCol}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="border border-gray-300 px-4 py-2 font-medium">Longueur manche</td>
-                    {Object.values(product.sizeChart).map((measurements, index) => (
-                      <td key={index} className="border border-gray-300 px-4 py-2 text-center">
-                        {measurements.longueurManche}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="border border-gray-300 px-4 py-2 font-medium">1/2 Bas de manche (poignet)</td>
-                    {Object.values(product.sizeChart).map((measurements, index) => (
-                      <td key={index} className="border border-gray-300 px-4 py-2 text-center">
-                        {measurements.basManche}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="border border-gray-300 px-4 py-2 font-medium">1/2 Tour de biceps</td>
-                    {Object.values(product.sizeChart).map((measurements, index) => (
-                      <td key={index} className="border border-gray-300 px-4 py-2 text-center">
-                        {measurements.tourBiceps}
-                      </td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    )
   };
 
   return (
@@ -268,19 +191,19 @@ export function ProductCard({ product }: ProductCardProps) {
           )}
           {product.stock === 0 && (
             <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">
-              Rupture de stock
+              {t('products.outOfStock')}
             </div>
           )}
         </div>
         
         <div className="p-4">
           <h3 className="text-lg font-semibold text-gray-900 mb-2">{product.name}</h3>
-          <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.description}</p>
+          <p className="text-gray-600 text-sm mb-3 line-clamp-2">{getTranslatedDescription(product)}</p>
           
           {/* Color Display */}
           {product.color && (
             <div className="mb-4">
-              <span className="text-sm text-gray-600">Couleur: </span>
+              <span className="text-sm text-gray-600">{t('products.color')}: </span>
               <span className="text-sm font-medium text-gray-800">{product.color}</span>
             </div>
           )}
@@ -295,7 +218,7 @@ export function ProductCard({ product }: ProductCardProps) {
               className="flex items-center gap-2 bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-md transition-colors duration-200"
             >
               <ShoppingCart className="w-4 h-4" />
-              {isAdding ? 'Ajouté ✓' : 'Ajouter au panier'}
+              {isAdding ? t('general.loading') : t('products.addToCart')}
             </Button>
           </div>
         </div>
@@ -304,8 +227,13 @@ export function ProductCard({ product }: ProductCardProps) {
       {/* Size Selection Modal */}
       {renderSizeSelectionModal()}
 
-      {/* Size Chart Modal */}
-      {showSizeChart && renderSizeChart()}
+      {/* Size Guide Modal */}
+      <SizeGuide 
+        isOpen={showSizeGuide}
+        onClose={() => setShowSizeGuide(false)}
+        category={getProductCategory(product)}
+        productName={product.name}
+      />
     </>
   );
 } 

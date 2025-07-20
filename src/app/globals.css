@@ -1,3 +1,12 @@
+@font-face {
+  font-family: 'Rosie Brown Serif';
+  src: url('/fonts/RosieBrownSerifDemo.ttf') format('truetype'),
+       url('/fonts/Rosie Brown Serif Demo.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -129,5 +138,86 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Times New Roman', 'Georgia', serif !important;
+  }
+  
+  /* Apply Rosie Brown font UPPERCASE only to headings/titles */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-rosie-brown), 'Rosie Brown Serif', 'Times New Roman', serif !important;
+    text-transform: uppercase !important;
+    font-weight: normal !important;
+    letter-spacing: 0.05em !important;
+  }
+  
+  /* Normal text elements use complementary serif */
+  p, span, div, a, button, input, textarea, select, label, li, td, th {
+    font-family: 'Times New Roman', 'Georgia', 'Book Antiqua', serif !important;
+  }
+  
+  /* Remove universal uppercase and font application */
+  *, *::before, *::after {
+    /* Remove universal font and text-transform */
+  }
+  
+  /* Navigation and special elements can use Rosie Brown without uppercase */
+  nav, .nav-item, .brand, .logo {
+    font-family: var(--font-rosie-brown), 'Rosie Brown Serif', 'Times New Roman', serif !important;
+  }
+  
+  /* Font class overrides */
+  .font-rosie-brown {
+    font-family: var(--font-rosie-brown), 'Rosie Brown Serif', 'Times New Roman', serif !important;
+  }
+  
+  .font-rosie-brown-caps {
+    font-family: var(--font-rosie-brown), 'Rosie Brown Serif', 'Times New Roman', serif !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+  }
+  
+  .font-serif {
+    font-family: 'Times New Roman', 'Georgia', 'Book Antiqua', serif !important;
+  }
+  
+  .font-sans {
+    font-family: 'Times New Roman', 'Georgia', 'Book Antiqua', serif !important;
+  }
+  
+  /* Special typography classes */
+  .title-font {
+    font-family: var(--font-rosie-brown), 'Rosie Brown Serif', 'Times New Roman', serif !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    font-weight: normal !important;
+  }
+  
+  .body-font {
+    font-family: 'Times New Roman', 'Georgia', 'Book Antiqua', serif !important;
+    line-height: 1.6 !important;
+  }
+  
+  /* Keep user input fields as normal case */
+  input[type="text"], input[type="email"], input[type="password"], 
+  input[type="search"], input[type="url"], input[type="tel"], 
+  textarea, [contenteditable="true"] {
+    text-transform: none !important;
+    font-family: 'Times New Roman', 'Georgia', serif !important;
+  }
+  
+  /* Utility classes to override text transform when needed */
+  .text-normal-case {
+    text-transform: none !important;
+  }
+  
+  .text-lowercase {
+    text-transform: lowercase !important;
+  }
+  
+  .text-capitalize {
+    text-transform: capitalize !important;
+  }
+  
+  .text-uppercase {
+    text-transform: uppercase !important;
   }
 }

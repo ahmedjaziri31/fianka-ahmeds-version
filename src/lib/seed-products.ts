@@ -278,7 +278,20 @@ export function seedProducts() {
       name: 'T-shirt Unisexe Classic',
       description: 'T-shirt unisexe classique, design intemporel et confortable.',
       price: 84,
-      image: '/wetransfer_tsawer-article-achat-unisexe_2025-07-17_2156/IMG_8874.jpeg',
+      image: '/wetransfer_tsawer-article-achat-unisexe_2025-07-17_2156/IMG_8874.jpeg', 
+      category: 'unisexe',
+      size: 'M',
+      color: 'Gris',
+      stock: 18,
+      availableSizes: ['S', 'M', 'L', 'XL', 'XXL'],
+      sizeChart: unisexSizeChart
+    }
+    ,
+    {
+      name: 'Tshirt Unisexe ',
+      description: 'T-shirt unisexe classique, design intemporel et confortable.',
+      price: 84,
+      image: '/wetransfer_couverture-unisexe_2025-07-17_2200/IMG_8909.jpeg',  
       category: 'unisexe',
       size: 'M',
       color: 'Gris',

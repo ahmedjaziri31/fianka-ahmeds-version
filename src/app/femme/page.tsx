@@ -24,11 +24,10 @@ export default function FemmePage() {
         const unisexResponse = await fetch('/api/products?category=unisexe');
         const unisexData = await unisexResponse.json();
         
-        // Combine: all femme products + second unisex product (if available, otherwise first)
+        // Combine: all femme products + first unisex product (T-shirt Unisexe)
         const combinedProducts = [
           ...femmeData.products,
-          ...(unisexData.products.length > 1 ? [unisexData.products[1]] : 
-              unisexData.products.length > 0 ? [unisexData.products[0]] : [])
+          ...(unisexData.products.length > 0 ? [unisexData.products[0]] : [])
         ];
         
         setProducts(combinedProducts);

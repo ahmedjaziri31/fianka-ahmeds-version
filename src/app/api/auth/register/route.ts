@@ -12,6 +12,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!name) {
+      return NextResponse.json(
+        { error: 'Name is required' },
+        { status: 400 }
+      );
+    }
+
     // Check if user already exists
     const existingUser = userDb.getUserByEmail(email);
     if (existingUser) {

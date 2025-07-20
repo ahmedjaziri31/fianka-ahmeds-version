@@ -1,18 +1,24 @@
 import Database from 'better-sqlite3';
+import path from 'path';
 import { hash, compare } from 'bcryptjs';
-import { Product, Order, CreateOrderData, ShippingAddress, CartItem } from '@/types';
+import { CreateOrderData, Order, CartItem, Product } from '@/types';
+import { calculateDiscount } from '@/lib/promo-codes';
 
 // Initialize database
-const db = new Database('fianka.db');
+const dbPath = path.join(process.cwd(), 'database.sqlite');
+const db = new Database(dbPath);
+
+// Enable foreign keys
+db.pragma('foreign_keys = ON');
 
 // Create users table
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
-    name TEXT,
-    birth_date TEXT,
+    birth_date DATE,
     gender TEXT,
     city TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -31,6 +37,8 @@ db.exec(`
     size TEXT,
     color TEXT,
     stock INTEGER NOT NULL DEFAULT 0,
+    available_sizes TEXT,
+    size_chart TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )
 `);
@@ -68,59 +76,52 @@ db.exec(`
   )
 `);
 
-export interface User {
-  id: number;
-  email: string;
-  name?: string;
-  birth_date?: string;
-  gender?: string;
-  city?: string;
-  created_at: string;
-}
-
-export interface CreateUserData {
-  email: string;
-  password: string;
-  name?: string;
-}
-
-export interface LoginData {
-  email: string;
-  password: string;
-}
+// Create newsletter_subscribers table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    is_active BOOLEAN DEFAULT 1,
+    promo_code_used TEXT,
+    subscribed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
 
 // User operations
 export const userDb = {
-  // Create new user
-  async createUser(userData: CreateUserData): Promise<User> {
+  // Create user
+  async createUser(userData: { name: string; email: string; password: string }): Promise<any> {
+    // Hash the password before storing
     const hashedPassword = await hash(userData.password, 12);
     
     const stmt = db.prepare(`
-      INSERT INTO users (email, password, name)
+      INSERT INTO users (name, email, password)
       VALUES (?, ?, ?)
     `);
     
-    const result = stmt.run(userData.email, hashedPassword, userData.name);
+    const result = stmt.run(userData.name, userData.email, hashedPassword);
     
-    const user = db.prepare('SELECT id, email, name, birth_date, gender, city, created_at FROM users WHERE id = ?')
-      .get(result.lastInsertRowid) as User;
+    const user = db.prepare('SELECT id, name, email, created_at FROM users WHERE id = ?')
+      .get(result.lastInsertRowid) as any;
     
     return user;
   },
 
   // Login user
-  async loginUser(loginData: LoginData): Promise<User | null> {
+  async loginUser(loginData: { email: string; password: string }): Promise<any | null> {
     const user = db.prepare('SELECT * FROM users WHERE email = ?').get(loginData.email) as any;
     
     if (!user) return null;
     
+    // Compare the provided password with the hashed password
     const isValid = await compare(loginData.password, user.password);
     if (!isValid) return null;
     
+    // Return user without password
     return {
       id: user.id,
-      email: user.email,
       name: user.name,
+      email: user.email,
       birth_date: user.birth_date,
       gender: user.gender,
       city: user.city,
@@ -128,20 +129,17 @@ export const userDb = {
     };
   },
 
-  // Get user by ID
-  getUserById(id: number): User | null {
-    const user = db.prepare('SELECT id, email, name, birth_date, gender, city, created_at FROM users WHERE id = ?')
-      .get(id) as User;
-    
-    return user || null;
+  // Get user by email
+  getUserByEmail(email: string): any {
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any;
+    return user;
   },
 
-  // Get user by email
-  getUserByEmail(email: string): User | null {
-    const user = db.prepare('SELECT id, email, name, birth_date, gender, city, created_at FROM users WHERE email = ?')
-      .get(email) as User;
-    
-    return user || null;
+  // Get user by ID
+  getUserById(id: number): any {
+    const user = db.prepare('SELECT id, name, email, birth_date, gender, city, created_at FROM users WHERE id = ?')
+      .get(id) as any;
+    return user;
   }
 };
 
@@ -169,8 +167,8 @@ export const productDb = {
   // Create product
   createProduct(productData: Omit<Product, 'id' | 'created_at'>): Product {
     const stmt = db.prepare(`
-      INSERT INTO products (name, description, price, image, category, size, color, stock)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO products (name, description, price, image, category, size, color, stock, available_sizes, size_chart)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     const result = stmt.run(
@@ -181,7 +179,9 @@ export const productDb = {
       productData.category,
       productData.size,
       productData.color,
-      productData.stock
+      productData.stock,
+      JSON.stringify(productData.availableSizes || []),
+      JSON.stringify(productData.sizeChart || {})
     );
     
     const product = db.prepare('SELECT * FROM products WHERE id = ?')
@@ -196,7 +196,9 @@ export const orderDb = {
   // Create order
   createOrder(orderData: CreateOrderData, userId?: number): Order {
     const subtotal = orderData.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-    const discount = 0; // TODO: Implement promo code logic
+    
+    // Calculate discount using promo code system
+    const discount = orderData.promo_code ? calculateDiscount(subtotal, orderData.promo_code) : 0;
     const total = subtotal - discount;
 
     const stmt = db.prepare(`
@@ -234,14 +236,21 @@ export const orderDb = {
     }
 
     // Get the complete order
-    return this.getOrderById(orderId)!;
+    const completeOrder = this.getOrderById(orderId);
+    if (!completeOrder) {
+      throw new Error('Failed to retrieve created order');
+    }
+
+    return completeOrder;
   },
 
   // Get order by ID
   getOrderById(id: number): Order | null {
     const orderRow = db.prepare('SELECT * FROM orders WHERE id = ?').get(id) as any;
     
-    if (!orderRow) return null;
+    if (!orderRow) {
+      return null;
+    }
 
     const itemRows = db.prepare(`
       SELECT oi.*, p.name, p.description, p.image, p.category
@@ -269,7 +278,7 @@ export const orderDb = {
       color: row.color
     }));
 
-    return {
+    const order: Order = {
       id: orderRow.id,
       user_id: orderRow.user_id,
       items,
@@ -282,6 +291,15 @@ export const orderDb = {
       created_at: orderRow.created_at,
       updated_at: orderRow.updated_at
     };
+
+    return order;
+  },
+
+  // Get all orders (for admin)
+  getAllOrders(): Order[] {
+    const orderRows = db.prepare('SELECT * FROM orders ORDER BY created_at DESC').all() as any[];
+    
+    return orderRows.map(row => this.getOrderById(row.id)).filter(Boolean) as Order[];
   },
 
   // Get orders by user ID
@@ -295,6 +313,96 @@ export const orderDb = {
   updateOrderStatus(id: number, status: Order['status']): boolean {
     const stmt = db.prepare('UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
     const result = stmt.run(status, id);
+    return result.changes > 0;
+  },
+
+  // Get order statistics (for admin dashboard)
+  getOrderStats(): { total: number; recent: number } {
+    // Get total orders count
+    const totalResult = db.prepare('SELECT COUNT(*) as count FROM orders').get() as { count: number };
+    const total = totalResult.count;
+
+    // Get recent orders (last 7 days)
+    const recentResult = db.prepare(`
+      SELECT COUNT(*) as count FROM orders 
+      WHERE created_at >= datetime('now', '-7 days')
+    `).get() as { count: number };
+    const recent = recentResult.count;
+
+    return { total, recent };
+  }
+};
+
+// Newsletter operations
+export const newsletterDb = {
+  // Add subscriber
+  addSubscriber(email: string, promoCode?: string): { id: number; email: string; subscribed_at: string } {
+    try {
+      const stmt = db.prepare(`
+        INSERT INTO newsletter_subscribers (email, promo_code_used)
+        VALUES (?, ?)
+      `);
+      
+      const result = stmt.run(email, promoCode || null);
+      
+      const subscriber = db.prepare('SELECT id, email, subscribed_at FROM newsletter_subscribers WHERE id = ?')
+        .get(result.lastInsertRowid) as any;
+      
+      return subscriber;
+    } catch (error: any) {
+      // If email already exists, return existing subscriber
+      if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        const existing = db.prepare('SELECT id, email, subscribed_at FROM newsletter_subscribers WHERE email = ?')
+          .get(email) as any;
+        return existing;
+      }
+      throw error;
+    }
+  },
+
+  // Get all subscribers
+  getAllSubscribers(): any[] {
+    const subscribers = db.prepare(`
+      SELECT id, email, is_active, promo_code_used, subscribed_at 
+      FROM newsletter_subscribers 
+      ORDER BY subscribed_at DESC
+    `).all();
+    
+    return subscribers.map(sub => ({
+      id: sub.id.toString(),
+      email: sub.email,
+      isActive: Boolean(sub.is_active),
+      promoCodeUsed: sub.promo_code_used,
+      subscribedAt: sub.subscribed_at
+    }));
+  },
+
+  // Get subscriber statistics
+  getSubscriberStats(): { total: number; recent: number } {
+    // Get total subscribers count
+    const totalResult = db.prepare('SELECT COUNT(*) as count FROM newsletter_subscribers').get() as { count: number };
+    const total = totalResult.count;
+
+    // Get recent subscribers (last 7 days)
+    const recentResult = db.prepare(`
+      SELECT COUNT(*) as count FROM newsletter_subscribers 
+      WHERE subscribed_at >= datetime('now', '-7 days')
+    `).get() as { count: number };
+    const recent = recentResult.count;
+
+    return { total, recent };
+  },
+
+  // Check if email exists
+  emailExists(email: string): boolean {
+    const result = db.prepare('SELECT id FROM newsletter_subscribers WHERE email = ?').get(email);
+    return !!result;
+  },
+
+  // Update subscriber status
+  updateSubscriberStatus(email: string, isActive: boolean): boolean {
+    const stmt = db.prepare('UPDATE newsletter_subscribers SET is_active = ? WHERE email = ?');
+    const result = stmt.run(isActive ? 1 : 0, email);
     return result.changes > 0;
   }
 };

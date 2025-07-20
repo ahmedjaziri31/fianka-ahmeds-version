@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { orderDb } from '@/lib/db';
 import { CreateOrderData } from '@/types';
+import { sendInvoiceEmail } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,17 +33,42 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create the order
-    const order = orderDb.createOrder(orderData);
+    // Validate items have required product data
+    for (const item of orderData.items) {
+      if (!item.product || !item.product.id) {
+        return NextResponse.json(
+          { error: 'Invalid item - missing product information' },
+          { status: 400 }
+        );
+      }
+    }
+
+        // Create the order with user ID if provided
+    const order = orderDb.createOrder(orderData, orderData.user_id);
+
+    // Send invoice email
+    try {
+      const emailResult = await sendInvoiceEmail(order);
+      if (!emailResult.success) {
+        console.error('Failed to send invoice email:', emailResult.error);
+        // Don't fail the order creation if email fails
+      }
+    } catch (emailError) {
+      console.error('Error sending invoice email:', emailError);
+      // Don't fail the order creation if email fails
+    }
 
     return NextResponse.json({ 
-      order,
+      order, 
       message: 'Order created successfully' 
     }, { status: 201 });
   } catch (error) {
     console.error('Error creating order:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
