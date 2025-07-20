@@ -10,9 +10,11 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        'rosie-brown': ['var(--font-rosie-brown)'],
-        'sans': ['var(--font-rosie-brown)'],
-        'serif': ['var(--font-rosie-brown)'],
+        'rosie-brown': ['var(--font-rosie-brown)', 'Times New Roman', 'serif'],
+        'sans': ['Times New Roman', 'Georgia', 'Book Antiqua', 'serif'],
+        'serif': ['Times New Roman', 'Georgia', 'Book Antiqua', 'serif'],
+        'title': ['var(--font-rosie-brown)', 'Times New Roman', 'serif'],
+        'body': ['Times New Roman', 'Georgia', 'Book Antiqua', 'serif'],
       },
       colors: {
         // Custom color palette

@@ -67,7 +67,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-transparent backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-[#f8f6f0] rounded-lg w-full max-w-md relative">
         {/* Close Button */}
         <button

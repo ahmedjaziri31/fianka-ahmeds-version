@@ -116,7 +116,7 @@ export function Navigation() {
             : "bg-transparent"
         )}
       >
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-2 md:px-4">
           {/* Initial Design - Single Horizontal Line */}
           <div className={cn(
             "transition-all duration-300 ease-in-out",
@@ -124,7 +124,7 @@ export function Navigation() {
           )}>
             <div className="flex items-center justify-between w-full">
               {/* Logo */}
-              <Link href="/" className="flex items-center">
+              <Link href="/" className="flex items-center -ml-2 md:-ml-4">
                 <Image
                   src="/fianka-logo.gif"
                   alt="Fianka Logo"
@@ -287,7 +287,7 @@ export function Navigation() {
         {/* Mobile Side Menu Overlay */}
         {isMobileMenuOpen && (
           <div 
-            className="fixed inset-0 bg-black/50 z-40 sm:hidden"
+            className="fixed inset-0 bg-transparent backdrop-blur-sm z-40 sm:hidden"
             onClick={closeMobileMenu}
           />
         )}

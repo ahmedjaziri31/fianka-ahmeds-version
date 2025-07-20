@@ -53,9 +53,9 @@ export function CartSidebar({ isOpen, onClose, onCheckout }: CartSidebarProps) {
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Overlay */}
       <div 
-        className="fixed inset-0 bg-black/50 z-50 transition-opacity"
+        className="fixed inset-0 bg-transparent backdrop-blur-sm z-50 transition-opacity"
         onClick={onClose}
       />
       

@@ -98,12 +98,10 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
   if (!isOpen) return null;
 
   return (
-    <>
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/50 z-50 transition-opacity"
-        onClick={onClose}
-      />
+    <div 
+      className="fixed inset-0 bg-transparent backdrop-blur-sm z-50 transition-opacity"
+      onClick={onClose}
+    >
       
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4">
@@ -203,6 +201,6 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 } 
